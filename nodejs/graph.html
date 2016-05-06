@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8" />
+    <title>Greenhouse</title>
+    <link rel="script" href="d3.min.js" />
+    <link rel="script" href="liquidFillGauge.js" />
+    <link rel="script" href="canvasjs.min.js" />
+    <style>
+        .liquidFillGaugeText { font-family: Helvetica; font-weight: bold; }
+    </style>
+</head>
+<body>
+<h1 class = "liquidFillGaugeText" style = "color: #00B386">Smart Greenhouse</h1>
+<div id="chartContainer" style="height: 300px; width:100%;"></div>
+<div id="chartContainer2" style="height: 300px; width:100%;"></div>
+
+<div align = "center">
+
+    <svg id="fillgaugeH" width="20%" height="250"></svg>
+    <svg id="fillgaugeL" width="20%" height="250"></svg>
+    <svg id="fillgaugeS" width="20%" height="250"></svg>
+</div>
+
+<script src="d3.min.js"></script>
+<script src="liquidFillGauge.js"></script>
+<script src="canvasjs.min.js"></script>
+<script src = "socket.io/socket.io.js"></script>
+<script>
+
+    var socket = io();
+    var dataReceived = "";
+
+    var dataT="0";
+    var dataH="0";
+    var dataS = 0;
+    var dataL = 0;
+
+    var gaugeH, gaugeL, gaugeS;
+
+
+    var config1 = liquidFillGaugeDefaultSettings();
+    config1.circleColor = "#FF7777";
+    config1.textColor = "#FF4444";
+    config1.waveTextColor = "#FFAAAA";
+    config1.waveColor = "#FFDDDD";
+    config1.circleThickness = 0.1;
+    config1.circleFillGap = 0.05;
+    config1.textVertPosition = 0.5;
+    config1.waveAnimateTime = 900;
+    config1.waveHeight = 0.05;
+    config1.waveCount = 1;
+    config1.valueCountUp = true;
+    config1.displayPercent = false;
+    gaugeL = loadLiquidFillGauge("fillgaugeL", dataL, config1);
+
+    var config2 = liquidFillGaugeDefaultSettings();
+    config2.circleColor = "#D4AB6A";
+    config2.textColor = "#553300";
+    config2.waveTextColor = "#805615";
+    config2.waveColor = "#AA7D39";
+    config2.circleThickness = 0.1;
+    config2.circleFillGap = 0.05;
+    config2.textVertPosition = 0.5;
+    config2.waveAnimateTime = 1000;
+    config2.waveHeight = 0.05;
+    config2.waveCount = 1;
+    config2.valueCountUp = true;
+    config2.displayPercent = false;
+    gaugeS = loadLiquidFillGauge("fillgaugeS", dataS, config2);
+
+    var config4 = liquidFillGaugeDefaultSettings();
+    config4.textColor = "#045681";
+    config4.waveTextColor = "#A4DBf8";
+    config4.waveColor = "#178BCA";
+    config4.circleColor = "#178BCA";
+    config4.circleThickness = 0.1;
+    config4.circleFillGap = 0.05;
+    config4.textVertPosition = 0.5;
+    config4.waveAnimateTime = 1000;
+    config4.waveHeight = 0.05;
+    config4.waveCount = 1;
+    config4.valueCountUp = true;
+    gaugeH = loadLiquidFillGauge("fillgaugeH", dataH, config4);
+
+    socket.on("dataRdy", function(data){
+      dataReceived = data;
+      console.log('data: '+ dataReceived);
+      if(dataReceived.charAt(2) === 'T'){
+        dataT=data;
+      }else if(dataReceived.charAt(2) === 'H'){
+        dataH = data;
+          gaugeH.update(parseFloat(dataH.match(/\d+(\.\d+)?/g)));
+      } else if(dataReceived.charAt(2) === 'L'){
+          dataL = parseFloat(data.match(/\d+(\.\d+)?/g));
+          console.log(dataL);
+          if(dataL > 500){
+            gaugeL.update(100);
+          } else{
+            gaugeL.update(0);
+          }
+      } else if (dataReceived.charAt(2) === 'S'){
+          dataS = parseFloat(data.match(/\d+(\.\d+)?/g));
+          console.log(dataS);
+          if(dataS < 50){
+            gaugeS.update(100);
+          } else{
+            gaugeS.update(0);
+          }
+      } else{
+
+      }
+    });
+
+    function humidityBtnClick(){
+        var input = document.getElementById("humidityInput");
+        socket.emit("changeHumidity", input.value);
+    }
+
+    function lightBtnClick(){
+        var input = document.getElementById("lightInput");
+        socket.emit("changeLight", input.value);
+    }
+
+    function soilBtnClick(){
+        var input = document.getElementById("soilInput");
+        socket.emit("changeSoil", input.value);
+    }
+
+    window.onload = function () {
+
+        var dps = []; // dataPoints
+        var dps2 = [];
+
+        var chart = new CanvasJS.Chart("chartContainer",{
+            title :{
+                text: "Temperature"
+            },
+            data: [{
+                type: "line",
+                dataPoints: dps
+            }]
+        });
+
+        var chart2 = new CanvasJS.Chart("chartContainer2",{
+            title :{
+                text: "Humidity"
+            },
+            data: [{
+                type: "line",
+                dataPoints: dps2
+            }]
+        });
+
+        var xVal = 0;
+        var yVal = 100;
+        var updateInterval = 1000;
+        var dataLength = 50; // number of dataPoints visible at any pointupdateChart(dataLength);
+
+        var xVal2 = 0;
+        var yVal2 = 100;
+
+
+        var updateChart = function (count) {
+            count = count || 1;
+            // count is number of times loop runs to generate random dataPoints.
+
+            if(dataT.charAt(2) === 'T'){
+              console.log("T    " + dataT);
+              for (var j = 0; j < count; j++) {
+                  //yVal = yVal +  Math.round(50 + Math.random() *(-50-50));
+                    yVal = parseFloat(dataT.match(/\d+(\.\d+)?/g));
+                    dps.push({
+                      x: xVal,
+                      y: yVal
+                    });
+                    xVal++;
+              }
+            }
+            if (dps.length > dataLength) {
+                dps.shift();
+            }
+            dataT="";
+            chart.render();
+        };
+
+        var updateChart2 = function (count) {
+            count = count || 1;
+            // count is number of times loop runs to generate random dataPoints.
+            if(dataH.charAt(2) === 'H'){
+              console.log("H    " + dataH);
+              for (var j = 0; j < count; j++) {
+                  //yVal = yVal +  Math.round(50 + Math.random() *(-50-50));
+                    yVal2 = parseFloat(dataH.match(/\d+(\.\d+)?/g));
+                    dps2.push({
+                      x: xVal2,
+                      y: yVal2
+                    });
+                    xVal2++;
+              }
+            }
+            if (dps2.length > dataLength) {
+                dps2.shift();
+            }
+            dataH="";
+            chart2.render();
+        };
+
+        // generates first set of dataPoints
+        //updateChart(dataLength);
+        // update chart after specified time.
+        setInterval(function(){updateChart(10)}, updateInterval);
+
+        //updateChart2(dataLength);
+        // update chart after specified time
+        setInterval(function(){updateChart2(10)}, updateInterval);
+    };
+
+</script>
+</body>
+</html>
